@@ -1,41 +1,61 @@
 #!/bin/bash
+
+# Dapatkan IP dan domain
 MYIP=$(curl -sS ipv4.icanhazip.com)
 domain=$(cat /root/domain)
-apt install iptables iptables-persistent -y
-apt install curl socat xz-utils wget apt-transport-https gnupg gnupg2 gnupg1 dnsutils lsb-release -y 
-apt install socat cron bash-completion ntpdate -y
+
+# Pasang pakej yang diperlukan
+apt update
+apt install -y iptables iptables-persistent curl socat xz-utils wget apt-transport-https gnupg gnupg2 gnupg1 dnsutils lsb-release cron bash-completion ntpdate chrony unzip
+
+# Sync masa & konfigurasi timezone
 ntpdate pool.ntp.org
-# Masa & zon waktu
-log "Mengkonfigurasi masa & zon waktu…"
 timedatectl set-ntp true
+systemctl enable chronyd chrony
+systemctl restart chronyd chrony
 timedatectl set-timezone Asia/Kuala_Lumpur
-# Pastikan chrony aktif
-service_try_restart chrony
-log "Status chrony:"
-chronyc -n tracking || true
-chronyc -n sourcestats || true
+chronyc sourcestats -v
+chronyc tracking -v
 date
 
-# Acc Trojan XRAY TCP TLS
-mkdir -p /usr/local/etc/xray/
+# Folder persediaan Xray
+mkdir -p /usr/local/etc/xray
 touch /usr/local/etc/xray/akunxtr.conf
+mkdir -p /usr/bin/xray /etc/xray /var/log/xray
 
-# CHECK VERSION XRAY CORE
-latest_version="$(curl -s https://api.github.com/repos/XTLS/Xray-core/releases | grep tag_name | sed -E 's/.*"v(.*)".*/\1/' | head -n 1)"
+# Dapatkan versi latest Xray core rasmi (optional, boleh guna)
+latest_version="$(curl -s https://api.github.com/repos/XTLS/Xray-core/releases | grep tag_name | sed -E 's/.*"v([^"]+)".*/\1/' | head -n 1)"
 
-# Installation Xray Core
-xraycore_link="https://github.com/NiLphreakz/XrayCore-Custompath/releases/download/Xray-Core_v1.7.2/Xray-linux-64-v1.7.2-1.zip"
+# Link download custom (boleh ubah ikut keperluan)
+xraycore_link="https://github.com/NiL070/XrayCoreChanger/releases/download/Xray-CoreMod_v1.7.2-1/Xray-linux-64-v1.7.2-1"
 
-# Make Main Directory
-mkdir -p /usr/bin/xray
-mkdir -p /etc/xray
+# Buat folder sementara untuk download
+tmp_dir=$(mktemp -d)
+cd "$tmp_dir"
 
-# Unzip Xray Linux 64
-cd `mktemp -d`
-curl -sL "$xraycore_link" -o xray.zip
-unzip -q xray.zip && rm -rf xray.zip
-mv xray /usr/local/bin/xray
-chmod +x /usr/local/bin/xray
+# Download file
+curl -sL "$xraycore_link" -o xray_downloaded
+
+# Detect jenis file dan install
+if file xray_downloaded | grep -q "Zip archive data"; then
+    unzip -q xray_downloaded
+    mv xray /usr/local/bin/xray
+    chmod +x /usr/local/bin/xray
+    echo "Xray core installed from ZIP archive."
+else
+    mv xray_downloaded /usr/local/bin/xray
+    chmod +x /usr/local/bin/xray
+    echo "Xray core installed from binary file."
+fi
+
+# Bersihkan direktori sementara
+cd ~
+rm -rf "$tmp_dir"
+
+# Make Folder XRay
+mkdir -p /var/log/xray/
+
+echo "Selesai pemasangan Xray-core."
 
 # Make Folder XRay
 mkdir -p /var/log/xray/
